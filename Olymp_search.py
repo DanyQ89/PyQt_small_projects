@@ -3,12 +3,13 @@ import io
 import sys
 
 from PyQt5 import uic
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QWidget, QApplication, QTableWidgetItem
 
 template = """<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>OlympResult</class>
- <widget class="QWidget" name="OlympResult">
+ <class>OlympResultWin</class>
+ <widget class="QWidget" name="OlympResultWin">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -70,7 +71,20 @@ template = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-class OlympResult(QWidget):
+def find_color(color, best):
+    if best == 301:
+        color = QColor('#CCCC00')
+    else:
+        if color == QColor('#CCCC00'):
+            color = QColor('#B5B5BD')
+        elif color == QColor('#B5B5BD'):
+            color = QColor('#9C5221')
+        else:
+            color = None
+    return color
+
+
+class OlympResultWin(QWidget):
     def __init__(self):
         super().__init__()
         self.data = None
@@ -80,6 +94,15 @@ class OlympResult(QWidget):
         self.resultButton.clicked.connect(self.results)
 
     def results(self):
+        def painting():
+            self.tableWidget.setRowCount(self.tableWidget.rowCount() + 1)
+            self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 0, QTableWidgetItem(el[0]))
+            self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 1, QTableWidgetItem(str(el[-1])))
+            self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 2, QTableWidgetItem(el[-2]))
+            if color:
+                for index_el in range(3):
+                    self.tableWidget.item(self.tableWidget.rowCount() - 1, index_el).setBackground(color)
+
         school_value = self.schools.itemText(self.schools.currentIndex())
         class_value = self.classes.itemText(self.classes.currentIndex())
         if school_value != 'Все':
@@ -87,40 +110,55 @@ class OlympResult(QWidget):
         if class_value != 'Все':
             class_value = int(class_value)
         self.tableWidget.setRowCount(0)
+        best = 301
+        color = None
         if 'Все' not in str(school_value) + str(class_value):
             for i in range(len(self.data)):
                 el = self.data[i]
                 if el[1] == school_value and el[2] == class_value:
-                    self.tableWidget.setRowCount(self.tableWidget.rowCount() + 1)
-                    self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 0, QTableWidgetItem(el[0]))
-                    self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 1, QTableWidgetItem(str(el[-1])))
+                    if el[-1] < best:
+                        color = find_color(color, best)
+                        best = el[-1]
+                    painting()
+
         elif school_value != 'Все':
             for i in range(len(self.data)):
                 el = self.data[i]
                 if school_value == el[1]:
-                    self.tableWidget.setRowCount(self.tableWidget.rowCount() + 1)
-                    self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 0, QTableWidgetItem(el[0]))
-                    self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 1, QTableWidgetItem(str(el[-1])))
+                    if el[-1] < best:
+                        color = find_color(color, best)
+                        best = el[-1]
+                    painting()
+
         elif class_value != "Все":
             for i in range(len(self.data)):
                 el = self.data[i]
                 if class_value == el[2]:
-                    self.tableWidget.setRowCount(self.tableWidget.rowCount() + 1)
-                    self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 0, QTableWidgetItem(el[0]))
-                    self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 1, QTableWidgetItem(str(el[-1])))
+                    if el[-1] < best:
+                        color = find_color(color, best)
+                        best = el[-1]
+                    painting()
+
         else:
             for i in range(len(self.data)):
                 el = self.data[i]
+                if el[-1] < best:
+                    color = find_color(color, best)
+                    best = el[-1]
                 self.tableWidget.setRowCount(self.tableWidget.rowCount() + 1)
                 self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 0, QTableWidgetItem(el[0]))
                 self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 1, QTableWidgetItem(str(el[-1])))
+                self.tableWidget.setItem(self.tableWidget.rowCount() - 1, 2, QTableWidgetItem(el[-2]))
+                if color:
+                    for index in range(3):
+                        self.tableWidget.item(self.tableWidget.rowCount() - 1, index).setBackground(color)
 
     def initUI(self):
-        self.tableWidget.setColumnCount(3)
         with open('rez.csv', encoding='utf8') as file:
             data = list(csv.reader(file, delimiter=','))[1:]
             data = list(
-                map(lambda x: [x[1].split()[-2], int(x[2].split('-')[-3]), int(x[2].split('-')[-2]), int(x[-1])], data))
+                map(lambda x: [x[1].split()[-2], int(x[2].split('-')[-3]), int(x[2].split('-')[-2]), x[1], int(x[-1])],
+                    data))
             self.data = data
             for i in [self.schools, self.classes]:
                 i.addItem('Все')
@@ -130,16 +168,26 @@ class OlympResult(QWidget):
             for i in sorted(set(map(lambda x: x[2], data))):
                 i = str(i)
                 self.classes.addItem(i if len(i) > 1 else f'0{i}')
-        self.tableWidget.setColumnCount(2)
-        self.tableWidget.setHorizontalHeaderLabels(["Фамилия", "Результат"])
+        self.tableWidget.setColumnCount(3)
+        self.tableWidget.setHorizontalHeaderLabels(["Фамилия", "Результат", 'Логин'])
+        best = 301
+        color = ''
         for i in range(len(data)):
+            el = data[i]
+            if el[-1] < best:
+                color = find_color(color, best)
+                best = el[-1]
             self.tableWidget.setRowCount(self.tableWidget.rowCount() + 1)
             self.tableWidget.setItem(i, 0, QTableWidgetItem(str(data[i][0])))
             self.tableWidget.setItem(i, 1, QTableWidgetItem(str(data[i][-1])))
+            self.tableWidget.setItem(i, 2, QTableWidgetItem(str(data[i][-2])))
+            if color:
+                for index in range(3):
+                    self.tableWidget.item(i, index).setBackground(color)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = OlympResult()
+    ex = OlympResultWin()
     ex.show()
     sys.exit(app.exec())
